@@ -1,6 +1,6 @@
 package scalix
 
-import java.io.PrintWriter
+import java.io.{FileNotFoundException, FileReader, PrintWriter}
 
 import org.json4s.JsonAST.{JArray, JInt, JString, JValue}
 import org.json4s.native.JsonParser.parse
@@ -39,35 +39,76 @@ object Test extends App {
     var resultSet: Set[(Int,String)] = Set()
     val url1 = "https://api.themoviedb.org/3/person/"
     val url2= "/movie_credits?api_key=4f6ee73c5f67065f7217e9048486969e&language=en-US&include_adult=false&page=1"
-    val response = Source.fromURL(url1 +id+ url2)
-    val responseJson = parse(response.mkString)
-    val JArray(results) = responseJson.\("cast")
-    if (results.nonEmpty) for (res <- results) {
-      val JInt(i)= res.\("id")
-      val JString(s)= res.\("title")
-       resultSet = resultSet ++ Set((i.toInt ,s))
+    try {
+      val response = Source.fromFile(String.format("..\\Scalix\\src\\main\\scala\\data\\actor%d.txt",id))
+      val responseJson = parse(response.mkString)
+      val JArray(results) = responseJson.\("cast")
+      if (results.nonEmpty) for (res <- results) {
+        val JInt(i) = res.\("id")
+        val JString(s) = res.\("title")
+        resultSet = resultSet ++ Set((i.toInt, s))
+      }
+    } catch {
+      case x:FileNotFoundException => {
+        val response = Source.fromURL(url1 + id + url2)
+        val responseString = response.mkString
+        val responseJson = parse(responseString)
+        val JArray(results) = responseJson.\("cast")
+        if (results.nonEmpty) for (res <- results) {
+          val JInt(i)= res.\("id")
+          val JString(s)= res.\("title")
+          resultSet = resultSet ++ Set((i.toInt ,s))
+      }
+        val out = new PrintWriter(String.format("..\\Scalix\\src\\main\\scala\\data\\actor%d.txt",id))
+        out.print(responseString)
+        out.close()
+
     }
-    val out = new PrintWriter(String.format("..\\Scalix\\src\\main\\scala\\data\\actor%d.txt",id))
-    out.write(resultSet.toString())//TODO: retourne des fichiers vides
+
+    }
     resultSet
+
   }
 
   def findMovieDirector(id: Int): Option[(Int, String)] = {
+    var dir:Option[(Int, String)] =None
     val url1 = "https://api.themoviedb.org/3/movie/"
     val url2= "/credits?api_key=4f6ee73c5f67065f7217e9048486969e&language=en-US&include_adult=false&page=1"
-    val response = Source.fromURL(url1 +id+ url2)
-    val responseJson = parse(response.mkString)
-    val JArray(results) = responseJson.\("crew")
-    var dir:Option[(Int, String)] =None
-    if (results.nonEmpty) for (res <- results) {
-      val JString(s)= res.\("job")
-      if (s == "Director") {
-        val JInt(i)= res.\("id")
-        val JString(name)= res.\("name")
-        dir = Some((i.toInt,name))
+    try {
+      val response = Source.fromFile(String.format("..\\Scalix\\src\\main\\scala\\data\\movie%d.txt",id))
+      val responseJson = parse(response.mkString)
+      val JArray(results) = responseJson.\("crew")
+
+      if (results.nonEmpty) for (res <- results) {
+        val JString(s)= res.\("job")
+        if (s == "Director") {
+          val JInt(i)= res.\("id")
+          val JString(name)= res.\("name")
+          dir = Some((i.toInt,name))
+        }
+      }
+    } catch {
+      case x:FileNotFoundException => {
+        val response = Source.fromURL(url1 + id + url2)
+        val responseString = response.mkString
+        val responseJson = parse(responseString)
+        val JArray(results) = responseJson.\("crew")
+
+        if (results.nonEmpty) for (res <- results) {
+          val JString(s)= res.\("job")
+          if (s == "Director") {
+            val JInt(i)= res.\("id")
+            val JString(name)= res.\("name")
+            dir = Some((i.toInt,name))
+          }
+        }
+        val out = new PrintWriter(String.format("..\\Scalix\\src\\main\\scala\\data\\movie%d.txt",id))
+        out.print(responseString)
+        out.close()
       }
     }
     dir
+
   }
 
   def request(actor1: FullName, actor2: FullName): Set[(String, String)]= {
@@ -76,7 +117,6 @@ object Test extends App {
     val commonMovies = for (x<-movieList1;y<-movieList2 if x==y ) yield x
     for (x<-commonMovies) yield (x._2,findMovieDirector(x._1).get._2)
   }
-
 
 }
 
